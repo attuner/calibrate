@@ -1,0 +1,1137 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>FHD TV Picture Calibration Suite (Side-Split OSD Compatible)</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  
+  <style>
+    :root {
+      --font-mono: 'JetBrains Mono', monospace;
+      --font-sans: 'Inter', sans-serif;
+    }
+    body {
+      font-family: var(--font-sans);
+      background-color: #000000;
+      color: #e2e8f0;
+      margin: 0;
+      padding: 0;
+      overflow: hidden;
+      user-select: none;
+      -webkit-user-select: none;
+    }
+    .mono {
+      font-family: var(--font-mono);
+    }
+    /* Pixel perfection for resolution & sharpness patterns */
+    canvas.crisp-pixel {
+      image-rendering: -moz-crisp-edges;
+      image-rendering: -webkit-crisp-edges;
+      image-rendering: pixelated;
+      image-rendering: crisp-edges;
+    }
+    /* Subtle scanline / broadcast vibe for header */
+    .oled-black {
+      background-color: #000000;
+    }
+    /* Custom scrollbar for instructions panel */
+    ::-webkit-scrollbar {
+      width: 6px;
+      height: 6px;
+    }
+    ::-webkit-scrollbar-track {
+      background: #09090b;
+    }
+    ::-webkit-scrollbar-thumb {
+      background: #27272a;
+      border-radius: 3px;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+      background: #3f3f46;
+    }
+    .active-tab {
+      background: #2563eb !important;
+      color: #ffffff !important;
+      border-color: #3b82f6 !important;
+    }
+    .key-badge {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-width: 1.5rem;
+      padding: 0.1rem 0.35rem;
+      font-size: 0.7rem;
+      border-radius: 0.25rem;
+      border: 1px solid #4b5563;
+      background: #1f2937;
+      color: #93c5fd;
+    }
+  </style>
+</head>
+<body class="h-screen w-screen flex flex-col bg-black text-gray-200">
+
+  <!-- Top Navigation & Global Calibration Utility Bar -->
+  <header class="h-12 bg-zinc-950 border-b border-zinc-800 flex items-center justify-between px-4 z-50 text-xs shrink-0 select-none">
+    <div class="flex items-center gap-3">
+      <div class="flex items-center gap-2">
+        <span class="w-3 h-3 rounded-full bg-blue-500 animate-pulse"></span>
+        <span class="font-bold tracking-wide text-sm text-white mono">CALIBRATE-PRO FHD</span>
+      </div>
+      <span class="text-zinc-500 hidden sm:inline">|</span>
+      <span class="text-zinc-400 hidden sm:inline" id="screenResDisplay">1920×1080 Native Target</span>
+      <span class="bg-zinc-800 text-zinc-300 px-2 py-0.5 rounded mono text-[10px] hidden md:inline">Rec.709 sRGB 8-bit</span>
+    </div>
+
+    <!-- Quick action buttons -->
+    <div class="flex items-center gap-2">
+      <button id="flipLayoutBtn" title="Switch TV Menu Side (Flip Left / Right)" class="flex items-center gap-1.5 px-2.5 py-1.5 bg-zinc-900 hover:bg-zinc-800 border border-zinc-700 rounded text-zinc-200 transition">
+        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4"/></svg>
+        <span class="font-medium hidden sm:inline">Flip Sides</span>
+      </button>
+
+      <button id="toggleMenuAreaBtn" title="Toggle OSD Simulated Banner Opacity" class="flex items-center gap-1.5 px-2.5 py-1.5 bg-zinc-900 hover:bg-zinc-800 border border-zinc-700 rounded text-zinc-200 transition">
+        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg>
+        <span id="menuAreaBtnText" class="font-medium">Guide View: Visible</span>
+      </button>
+
+      <button id="fullscreenBtn" title="Enter 1080p Fullscreen" class="flex items-center gap-1.5 px-3 py-1.5 bg-blue-600 hover:bg-blue-500 text-white font-medium rounded transition shadow-sm">
+        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 8V4m0 0h4M4 4l5 5m11-5h-4m4 0v4m0 0l-5-5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4"/></svg>
+        <span>Full Screen</span>
+      </button>
+    </div>
+  </header>
+
+  <!-- Main Display Screen Canvas (100vh - 48px) Split 50% / 50% -->
+  <main id="mainContainer" class="flex-1 w-full flex flex-row overflow-hidden relative">
+
+    <!-- LEFT 50% SECTION: TV OSD Menu Area & Calibration Walkthrough -->
+    <section id="leftPane" class="w-1/2 h-full flex flex-col border-r border-zinc-800 bg-zinc-950/95 transition-all duration-300 relative overflow-hidden z-20">
+      
+      <!-- Top banner of left side -->
+      <div class="p-3 bg-zinc-900 border-b border-zinc-800 flex items-center justify-between">
+        <div class="flex items-center gap-2">
+          <div class="w-2.5 h-2.5 rounded-full bg-amber-400"></div>
+          <h2 class="text-xs font-bold uppercase tracking-wider text-amber-300 mono">Left 50% OSD Zone</h2>
+        </div>
+        <div class="flex items-center gap-1.5">
+          <button id="osdDimBtn" class="px-2 py-1 text-[11px] bg-zinc-800 hover:bg-zinc-700 text-zinc-300 rounded border border-zinc-700">Dim (30%)</button>
+          <button id="osdBlackBtn" class="px-2 py-1 text-[11px] bg-zinc-800 hover:bg-zinc-700 text-zinc-300 rounded border border-zinc-700">Blackout (0%)</button>
+          <button id="osdNormalBtn" class="px-2 py-1 text-[11px] bg-blue-900/60 hover:bg-blue-800 text-blue-200 rounded border border-blue-600">Full Info</button>
+        </div>
+      </div>
+
+      <!-- Scrollable Step-by-Step Tuning Guide -->
+      <div id="guideContent" class="flex-1 overflow-y-auto p-4 space-y-4 text-xs leading-relaxed text-zinc-300">
+        
+        <div class="p-3 rounded-lg bg-blue-950/40 border border-blue-800/60 text-blue-200">
+          <div class="font-semibold text-blue-300 mb-1 flex items-center gap-2 text-sm">
+            <span>📺</span> How To Calibrate With Left Side OSD
+          </div>
+          <p>
+            When you press <strong class="text-white">"Settings / Picture"</strong> on your TV remote, your TV menu overlays precisely over this left panel. 
+            Review the target checklist below, open your TV menu, then observe the test patterns on the right half in real time!
+          </p>
+        </div>
+
+        <!-- Setting 1: Picture Mode & Backlight -->
+        <div class="border border-zinc-800 rounded-lg p-3 bg-zinc-900/60 hover:border-zinc-700 transition">
+          <div class="flex items-center justify-between mb-1.5">
+            <span class="font-bold text-sm text-zinc-100 flex items-center gap-1.5">
+              <span class="text-amber-400">0.</span> Picture Mode Preset & Backlight
+            </span>
+            <span class="text-[10px] bg-zinc-800 px-1.5 py-0.5 rounded text-zinc-400 mono">Base Settings</span>
+          </div>
+          <ul class="list-disc list-inside space-y-1 text-zinc-400 ml-1">
+            <li>Select <strong class="text-zinc-200">Cinema, Movie, or Filmmaker Mode</strong> (turn off "Vivid" or "Dynamic").</li>
+            <li>Set <strong class="text-zinc-200">Color Temperature</strong> to <em>Warm2 / Warm</em> (standard D65 6500K).</li>
+            <li>Adjust <strong class="text-zinc-200">Backlight / OLED Light</strong> according to room ambient light. Do not confuse with "Brightness".</li>
+          </ul>
+        </div>
+
+        <!-- Setting 2: Brightness (Black Level) -->
+        <div class="border border-zinc-800 rounded-lg p-3 bg-zinc-900/60 hover:border-zinc-700 transition">
+          <div class="flex items-center justify-between mb-1.5">
+            <span class="font-bold text-sm text-zinc-100 flex items-center gap-1.5">
+              <span class="text-amber-400">1.</span> Brightness (Black Level)
+            </span>
+            <span class="text-[10px] bg-zinc-800 px-1.5 py-0.5 rounded text-zinc-400 mono">Pattern [1]</span>
+          </div>
+          <p class="text-zinc-400 mb-1.5">
+            Controls shadow detail and the black floor (RGB 16 in video broadcast space).
+          </p>
+          <div class="p-2 rounded bg-zinc-950 border border-zinc-800 font-mono text-[11px] text-zinc-300 space-y-1">
+            <div>• Bar <strong class="text-red-400">16 (Reference Black)</strong> must melt into pure black background.</div>
+            <div>• Bar <strong class="text-green-400">17</strong> and above should be faintly distinguishable.</div>
+            <div>• If 17 is missing = crushed blacks (raise brightness). If background looks foggy gray = washed out (lower brightness).</div>
+          </div>
+        </div>
+
+        <!-- Setting 3: Contrast (White Level) -->
+        <div class="border border-zinc-800 rounded-lg p-3 bg-zinc-900/60 hover:border-zinc-700 transition">
+          <div class="flex items-center justify-between mb-1.5">
+            <span class="font-bold text-sm text-zinc-100 flex items-center gap-1.5">
+              <span class="text-amber-400">2.</span> Contrast (White Level)
+            </span>
+            <span class="text-[10px] bg-zinc-800 px-1.5 py-0.5 rounded text-zinc-400 mono">Pattern [2]</span>
+          </div>
+          <p class="text-zinc-400 mb-1.5">
+            Sets highlight clipping and maximum luminance without tint shift or eye strain.
+          </p>
+          <div class="p-2 rounded bg-zinc-950 border border-zinc-800 font-mono text-[11px] text-zinc-300 space-y-1">
+            <div>• Steps up to <strong class="text-yellow-400">234 & 235 (Nominal White)</strong> must remain visible.</div>
+            <div>• 236–254 (WTW / Whiter-Than-White) may faintly flash without turning pink or cyan.</div>
+            <div>• If all high bars clip into a solid flat white blob, lower Contrast.</div>
+          </div>
+        </div>
+
+        <!-- Setting 4: Sharpness & Processing -->
+        <div class="border border-zinc-800 rounded-lg p-3 bg-zinc-900/60 hover:border-zinc-700 transition">
+          <div class="flex items-center justify-between mb-1.5">
+            <span class="font-bold text-sm text-zinc-100 flex items-center gap-1.5">
+              <span class="text-amber-400">3.</span> Sharpness & Edge Enhancer
+            </span>
+            <span class="text-[10px] bg-zinc-800 px-1.5 py-0.5 rounded text-zinc-400 mono">Pattern [4]</span>
+          </div>
+          <p class="text-zinc-400 mb-1.5">
+            TV Sharpness filters create artificial artificial edges and jagged artifacts.
+          </p>
+          <div class="p-2 rounded bg-zinc-950 border border-zinc-800 font-mono text-[11px] text-zinc-300 space-y-1">
+            <div>• Examine the 1-pixel alternating line grids and crosshair targets.</div>
+            <div>• <strong class="text-amber-300">Rule of thumb:</strong> Lower Sharpness until glowing white halos/fringes vanish.</div>
+            <div>• On most modern TVs, true neutral sharpness is <strong>0%</strong> (Sony/LG) or <strong>10%</strong> (Samsung).</div>
+          </div>
+        </div>
+
+        <!-- Setting 5: Color & Tint -->
+        <div class="border border-zinc-800 rounded-lg p-3 bg-zinc-900/60 hover:border-zinc-700 transition">
+          <div class="flex items-center justify-between mb-1.5">
+            <span class="font-bold text-sm text-zinc-100 flex items-center gap-1.5">
+              <span class="text-amber-400">4.</span> Color & Saturation
+            </span>
+            <span class="text-[10px] bg-zinc-800 px-1.5 py-0.5 rounded text-zinc-400 mono">Pattern [3]</span>
+          </div>
+          <p class="text-zinc-400 mb-1.5">
+            Ensure color gradients are continuous without banding or oversaturation blowouts.
+          </p>
+          <div class="p-2 rounded bg-zinc-950 border border-zinc-800 font-mono text-[11px] text-zinc-300 space-y-1">
+            <div>• Colors should look vivid yet natural, especially skin tones.</div>
+            <div>• Red and magenta gradient swatches must not lose gradations in the top 20%.</div>
+          </div>
+        </div>
+
+        <!-- TV Remote Shortcuts Hint -->
+        <div class="p-3 rounded-lg bg-zinc-900 border border-zinc-700/80 text-zinc-400 text-[11px]">
+          <div class="font-semibold text-zinc-200 mb-1">⌨️ Quick Remote / Keyboard Navigation:</div>
+          <div class="grid grid-cols-2 gap-1 mono text-[10px]">
+            <div><span class="key-badge">1</span> Brightness</div>
+            <div><span class="key-badge">2</span> Contrast</div>
+            <div><span class="key-badge">3</span> Color / Tint</div>
+            <div><span class="key-badge">4</span> Sharpness</div>
+            <div><span class="key-badge">5</span> Backlight</div>
+            <div><span class="key-badge">6</span> All-In-One Master</div>
+            <div><span class="key-badge">F</span> Fullscreen</div>
+            <div><span class="key-badge">S</span> Flip Side</div>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- Quick collapse notification indicator -->
+      <div id="blackoutNotice" class="hidden absolute inset-0 bg-black flex flex-col items-center justify-center p-6 text-center z-30">
+        <p class="text-zinc-500 font-mono text-sm mb-2">LEFT ZONE BLACKOUT ACTIVE</p>
+        <p class="text-zinc-600 text-xs max-w-xs">Your TV settings menu can now overlay here without any visual background distraction.</p>
+        <button id="restoreGuideBtn" class="mt-4 px-3 py-1.5 bg-zinc-800 hover:bg-zinc-700 text-zinc-300 text-xs rounded border border-zinc-600 transition">
+          Restore Guide Panel
+        </button>
+      </div>
+    </section>
+
+    <!-- RIGHT 50% SECTION: Calibration Test Pattern Generator Area -->
+    <section id="rightPane" class="w-1/2 h-full flex flex-col bg-black relative select-none">
+      
+      <!-- Pattern Selector Tabs Header -->
+      <nav class="h-10 bg-zinc-950 border-b border-zinc-800 flex items-center px-2 gap-1 overflow-x-auto shrink-0 z-10 text-xs">
+        <button data-pattern="brightness" class="tab-btn px-2.5 py-1.5 rounded font-medium border border-zinc-800 bg-zinc-900 text-zinc-400 hover:text-white transition flex items-center gap-1.5">
+          <span class="key-badge">1</span>
+          <span>Brightness</span>
+        </button>
+        <button data-pattern="contrast" class="tab-btn px-2.5 py-1.5 rounded font-medium border border-zinc-800 bg-zinc-900 text-zinc-400 hover:text-white transition flex items-center gap-1.5">
+          <span class="key-badge">2</span>
+          <span>Contrast</span>
+        </button>
+        <button data-pattern="color" class="tab-btn px-2.5 py-1.5 rounded font-medium border border-zinc-800 bg-zinc-900 text-zinc-400 hover:text-white transition flex items-center gap-1.5">
+          <span class="key-badge">3</span>
+          <span>Color</span>
+        </button>
+        <button data-pattern="sharpness" class="tab-btn px-2.5 py-1.5 rounded font-medium border border-zinc-800 bg-zinc-900 text-zinc-400 hover:text-white transition flex items-center gap-1.5">
+          <span class="key-badge">4</span>
+          <span>Sharpness</span>
+        </button>
+        <button data-pattern="backlight" class="tab-btn px-2.5 py-1.5 rounded font-medium border border-zinc-800 bg-zinc-900 text-zinc-400 hover:text-white transition flex items-center gap-1.5">
+          <span class="key-badge">5</span>
+          <span>Backlight/Gray</span>
+        </button>
+        <button data-pattern="master" class="tab-btn px-2.5 py-1.5 rounded font-medium border border-blue-900 bg-blue-950/80 text-blue-300 hover:text-white transition flex items-center gap-1.5 active-tab">
+          <span class="key-badge">6</span>
+          <span class="font-bold">Master Grid</span>
+        </button>
+      </nav>
+
+      <!-- Pattern Canvas & Interactive Workspace -->
+      <div id="patternViewport" class="flex-1 w-full h-full relative overflow-hidden bg-black flex items-center justify-center">
+        <!-- Canvas for high precision test patterns -->
+        <canvas id="calibrationCanvas" class="crisp-pixel block w-full h-full"></canvas>
+
+        <!-- Floating overlay caption indicating current pattern & goal -->
+        <div id="patternCaption" class="absolute bottom-2 left-2 right-2 px-3 py-1.5 rounded bg-black/85 border border-zinc-800/80 backdrop-blur-sm flex items-center justify-between text-[11px] text-zinc-300 pointer-events-none z-10 transition">
+          <span id="captionTitle" class="font-bold text-white mono">MASTER CALIBRATION GRID</span>
+          <span id="captionGoal" class="text-zinc-400 truncate ml-2">Simultaneous Brightness, Contrast, Color & Sharpness</span>
+        </div>
+      </div>
+
+    </section>
+
+  </main>
+
+  <script>
+    /**
+     * TV Calibration Suite Engine
+     * Precision Rec.709 8-bit digital values rendered to pixel canvas
+     */
+    const state = {
+      currentPattern: 'master',
+      isFlipped: false,
+      guideVisibility: 'visible', // 'visible', 'dimmed', 'blackout'
+      blinkPhase: 0,
+      animId: null
+    };
+
+    // DOM Elements
+    const canvas = document.getElementById('calibrationCanvas');
+    const ctx = canvas.getContext('2d', { alpha: false });
+    const mainContainer = document.getElementById('mainContainer');
+    const leftPane = document.getElementById('leftPane');
+    const rightPane = document.getElementById('rightPane');
+    const guideContent = document.getElementById('guideContent');
+    const blackoutNotice = document.getElementById('blackoutNotice');
+    const fullscreenBtn = document.getElementById('fullscreenBtn');
+    const flipLayoutBtn = document.getElementById('flipLayoutBtn');
+    const toggleMenuAreaBtn = document.getElementById('toggleMenuAreaBtn');
+    const menuAreaBtnText = document.getElementById('menuAreaBtnText');
+    const captionTitle = document.getElementById('captionTitle');
+    const captionGoal = document.getElementById('captionGoal');
+    const screenResDisplay = document.getElementById('screenResDisplay');
+    const osdDimBtn = document.getElementById('osdDimBtn');
+    const osdBlackBtn = document.getElementById('osdBlackBtn');
+    const osdNormalBtn = document.getElementById('osdNormalBtn');
+    const restoreGuideBtn = document.getElementById('restoreGuideBtn');
+    const tabButtons = document.querySelectorAll('.tab-btn');
+
+    function resizeCanvas() {
+      const rect = canvas.getBoundingClientRect();
+      const dpr = window.devicePixelRatio || 1;
+      
+      // Target exact physical hardware pixels of the container
+      const w = Math.floor(rect.width * dpr);
+      const h = Math.floor(rect.height * dpr);
+
+      if (canvas.width !== w || canvas.height !== h) {
+        canvas.width = Math.max(w, 320);
+        canvas.height = Math.max(h, 240);
+      }
+
+      // Update screen resolution readout
+      screenResDisplay.textContent = `${window.screen.width}×${window.screen.height} (Viewport: ${window.innerWidth}×${window.innerHeight})`;
+      drawCurrentPattern();
+    }
+
+    window.addEventListener('resize', resizeCanvas);
+
+    const PATTERN_INFO = {
+      brightness: {
+        title: "BRIGHTNESS (PLUGE BLACK LEVEL)",
+        goal: "Lower until Bar 16 merges with pure black, but Bar 17 remains faintly visible."
+      },
+      contrast: {
+        title: "CONTRAST (WHITE LEVEL / HIGHLIGHT CLIPPING)",
+        goal: "Increase until 235 is bright white without crushing steps 230–234 or tint shift."
+      },
+      color: {
+        title: "COLOR SATURATION & TINT BALANCE",
+        goal: "Check SMPTE 75% & 100% color bars and ensure smooth natural skin tone gradations."
+      },
+      sharpness: {
+        title: "SHARPNESS & EDGE ENHANCER REMOVAL",
+        goal: "Set Sharpness low enough that halo rings vanish & 1-pixel alternating lines don't alias."
+      },
+      backlight: {
+        title: "BACKLIGHT, GRAYSCALE & SCREEN UNIFORMITY",
+        goal: "Tune backlight to room ambient light. Verify clean gray steps without discoloration."
+      },
+      master: {
+        title: "ALL-IN-ONE COMPOSITE CALIBRATION GRID",
+        goal: "Adjust Brightness, Contrast, Color & Sharpness simultaneously while viewing your TV menu."
+      }
+    };
+
+    function updateCaption() {
+      const info = PATTERN_INFO[state.currentPattern];
+      if (info) {
+        captionTitle.textContent = info.title;
+        captionGoal.textContent = info.goal;
+      }
+    }
+
+    function renderBrightnessPattern(w, h) {
+      // True 0 black backdrop
+      ctx.fillStyle = '#000000';
+      ctx.fillRect(0, 0, w, h);
+
+      const margin = 20;
+      const innerW = w - margin * 2;
+      const innerH = h - margin * 2;
+
+      // Outer border at reference video black (16,16,16)
+      ctx.strokeStyle = 'rgb(16,16,16)';
+      ctx.lineWidth = 2;
+      ctx.strokeRect(margin, margin, innerW, innerH);
+
+      // Section Header
+      ctx.fillStyle = '#ffffff';
+      ctx.font = `bold ${Math.max(13, Math.floor(h * 0.024))}px ${getComputedStyle(document.body).getPropertyValue('--font-mono')}`;
+      ctx.textAlign = 'center';
+      ctx.fillText("BLACK LEVEL CALIBRATION (PLUGE)", w / 2, margin + 25);
+
+      ctx.fillStyle = '#9ca3af';
+      ctx.font = `${Math.max(10, Math.floor(h * 0.017))}px ${getComputedStyle(document.body).getPropertyValue('--font-sans')}`;
+      ctx.fillText("Target: Level 16 = background black. Levels 17–28 should progressively appear.", w / 2, margin + 45);
+
+      // Stepped Black Bars Array (Rec.709 video range: 0, 10, 14, 16=ref black, 17, 18, 19, 20, 22, 25, 28, 32)
+      const blackLevels = [
+        { val: 0, label: "0 (BTB)" },
+        { val: 12, label: "12 (BTB)" },
+        { val: 16, label: "16 (REF)" },
+        { val: 17, label: "17 (+1)" },
+        { val: 18, label: "18 (+2)" },
+        { val: 20, label: "20 (+4)" },
+        { val: 24, label: "24 (+8)" },
+        { val: 28, label: "28 (+12)" },
+        { val: 34, label: "34 (+18)" },
+        { val: 42, label: "42" },
+        { val: 54, label: "54" }
+      ];
+
+      const barSectionTop = margin + 65;
+      const barSectionHeight = h * 0.45;
+      const barW = innerW / blackLevels.length;
+
+      blackLevels.forEach((level, idx) => {
+        const x = margin + idx * barW;
+        ctx.fillStyle = `rgb(${level.val}, ${level.val}, ${level.val})`;
+        ctx.fillRect(x, barSectionTop, barW - 2, barSectionHeight);
+
+        // Indicator line on level 16 reference
+        if (level.val === 16) {
+          ctx.strokeStyle = '#ef4444';
+          ctx.lineWidth = 2;
+          ctx.strokeRect(x, barSectionTop, barW - 2, barSectionHeight);
+        }
+
+        // Labels
+        ctx.fillStyle = (level.val <= 16) ? '#6b7280' : '#d1d5db';
+        ctx.font = `${Math.max(9, Math.floor(h * 0.016))}px monospace`;
+        ctx.textAlign = 'center';
+        ctx.fillText(level.label, x + (barW / 2), barSectionTop + barSectionHeight + 16);
+      });
+
+      // Bottom dynamic blinking bars (levels 16, 17, 18 against reference 16 ground)
+      const bottomAreaTop = barSectionTop + barSectionHeight + 35;
+      const bottomAreaHeight = h - bottomAreaTop - margin - 15;
+
+      if (bottomAreaHeight > 60) {
+        // Draw background reference 16 ground
+        ctx.fillStyle = 'rgb(16,16,16)';
+        ctx.fillRect(margin, bottomAreaTop, innerW, bottomAreaHeight);
+
+        const subBarW = innerW / 4;
+        
+        // Blink level 17 & 19 to help eyes detect shadow threshold
+        const blinkAlpha = (Math.sin(state.blinkPhase * 3) + 1) / 2; // 0 to 1
+        
+        const testSubBars = [
+          { val: 14, text: "Sub-14 (Below Black)" },
+          { val: 16, text: "16 (Should Match)" },
+          { val: 17, text: "17 (Barely Visible)" },
+          { val: 19, text: "19 (Visible Detail)" }
+        ];
+
+        testSubBars.forEach((b, i) => {
+          const bx = margin + i * subBarW + 6;
+          const bw = subBarW - 12;
+          const by = bottomAreaTop + 10;
+          const bh = bottomAreaHeight - 20;
+
+          let c = b.val;
+          // Apply subtle pulse only to highlight bar 17 & 19 visibility
+          if (b.val === 17) {
+            c = Math.round(16 + (1 * blinkAlpha));
+          }
+
+          ctx.fillStyle = `rgb(${c}, ${c}, ${c})`;
+          ctx.fillRect(bx, by, bw, bh);
+
+          ctx.fillStyle = '#9ca3af';
+          ctx.font = '10px monospace';
+          ctx.textAlign = 'center';
+          ctx.fillText(b.text, bx + bw / 2, by + bh / 2 + 4);
+        });
+      }
+    }
+
+    function renderContrastPattern(w, h) {
+      // Background neutral 50% gray to avoid ocular fatigue
+      ctx.fillStyle = '#404040';
+      ctx.fillRect(0, 0, w, h);
+
+      const margin = 20;
+      const innerW = w - margin * 2;
+
+      ctx.fillStyle = '#ffffff';
+      ctx.font = `bold ${Math.max(13, Math.floor(h * 0.024))}px ${getComputedStyle(document.body).getPropertyValue('--font-mono')}`;
+      ctx.textAlign = 'center';
+      ctx.fillText("WHITE LEVEL & CONTRAST CLIPPING", w / 2, margin + 25);
+
+      ctx.fillStyle = '#e5e7eb';
+      ctx.font = `${Math.max(10, Math.floor(h * 0.017))}px ${getComputedStyle(document.body).getPropertyValue('--font-sans')}`;
+      ctx.fillText("Steps 230 to 235 must remain visible against 255. Do not crush highlight subtleties.", w / 2, margin + 45);
+
+      // White Steps: 220, 225, 230, 235 (Ref White), 240, 245, 250, 253, 254, 255
+      const whiteSteps = [
+        { v: 220, label: "220" },
+        { v: 225, label: "225" },
+        { v: 230, label: "230" },
+        { v: 235, label: "235 (REF)" },
+        { v: 240, label: "240" },
+        { v: 245, label: "245" },
+        { v: 249, label: "249" },
+        { v: 252, label: "252" },
+        { v: 254, label: "254" },
+        { v: 255, label: "255" }
+      ];
+
+      const barSectionTop = margin + 65;
+      const barH = h * 0.38;
+      const stepW = innerW / whiteSteps.length;
+
+      whiteSteps.forEach((st, idx) => {
+        const x = margin + idx * stepW;
+        ctx.fillStyle = `rgb(${st.v}, ${st.v}, ${st.v})`;
+        ctx.fillRect(x, barSectionTop, stepW - 2, barH);
+
+        // Highlight Reference 235
+        if (st.v === 235) {
+          ctx.strokeStyle = '#3b82f6';
+          ctx.lineWidth = 2;
+          ctx.strokeRect(x, barSectionTop, stepW - 2, barH);
+        }
+
+        ctx.fillStyle = (st.v >= 235) ? '#18181b' : '#3f3f46';
+        ctx.font = '10px monospace';
+        ctx.textAlign = 'center';
+        ctx.fillText(st.label, x + stepW / 2, barSectionTop + barH - 12);
+      });
+
+      // Split Channel Color White Ramp (Check color tint shift at max contrast)
+      const colorBarsTop = barSectionTop + barH + 20;
+      const colorBarH = Math.max(30, (h - colorBarsTop - margin - 20) / 4);
+      const channels = [
+        { name: 'Red Ramp', fn: v => `rgb(${v}, 0, 0)` },
+        { name: 'Green Ramp', fn: v => `rgb(0, ${v}, 0)` },
+        { name: 'Blue Ramp', fn: v => `rgb(0, 0, ${v})` },
+        { name: 'White Ramp', fn: v => `rgb(${v}, ${v}, ${v})` }
+      ];
+
+      channels.forEach((chan, cIdx) => {
+        const rowY = colorBarsTop + cIdx * (colorBarH + 4);
+        const grad = ctx.createLinearGradient(margin, 0, margin + innerW, 0);
+        grad.addColorStop(0, chan.fn(180));
+        grad.addColorStop(0.5, chan.fn(235));
+        grad.addColorStop(1, chan.fn(255));
+        
+        ctx.fillStyle = grad;
+        ctx.fillRect(margin, rowY, innerW, colorBarH);
+
+        ctx.fillStyle = '#ffffff';
+        ctx.font = '10px monospace';
+        ctx.textAlign = 'left';
+        ctx.fillText(chan.name, margin + 8, rowY + colorBarH / 2 + 3);
+      });
+    }
+
+    function renderColorPattern(w, h) {
+      ctx.fillStyle = '#050505';
+      ctx.fillRect(0, 0, w, h);
+
+      const margin = 16;
+      const innerW = w - margin * 2;
+
+      ctx.fillStyle = '#ffffff';
+      ctx.font = `bold ${Math.max(12, Math.floor(h * 0.022))}px ${getComputedStyle(document.body).getPropertyValue('--font-mono')}`;
+      ctx.textAlign = 'center';
+      ctx.fillText("SMPTE COLOR BARS & SATURATION RAMPS", w / 2, margin + 20);
+
+      // SMPTE 75% standard colors
+      const smpteColors = [
+        { name: 'White', color: 'rgb(191,191,191)' },
+        { name: 'Yellow', color: 'rgb(191,191,0)' },
+        { name: 'Cyan', color: 'rgb(0,191,191)' },
+        { name: 'Green', color: 'rgb(0,191,0)' },
+        { name: 'Magenta', color: 'rgb(191,0,191)' },
+        { name: 'Red', color: 'rgb(191,0,0)' },
+        { name: 'Blue', color: 'rgb(0,0,191)' }
+      ];
+
+      const barTop = margin + 35;
+      const barH = h * 0.32;
+      const colW = innerW / smpteColors.length;
+
+      smpteColors.forEach((bar, i) => {
+        const x = margin + i * colW;
+        ctx.fillStyle = bar.color;
+        ctx.fillRect(x, barTop, colW, barH);
+
+        ctx.fillStyle = '#000000';
+        ctx.font = '10px monospace';
+        ctx.textAlign = 'center';
+        ctx.fillText(bar.name, x + colW / 2, barTop + barH - 8);
+      });
+
+      // Natural Human Skin Tone Patches (vital for real-world tuning)
+      const skinTop = barTop + barH + 12;
+      const skinH = h * 0.16;
+      const skinTones = [
+        { label: 'Pale Fair', color: '#ffdfd2' },
+        { label: 'Warm Fair', color: '#f3cbb4' },
+        { label: 'Medium Tan', color: '#d09b78' },
+        { label: 'Olive Tan', color: '#b27a56' },
+        { label: 'Deep Rich', color: '#68402c' },
+        { label: 'Dark Espresso', color: '#3d2314' }
+      ];
+
+      const skinW = innerW / skinTones.length;
+      skinTones.forEach((st, i) => {
+        const sx = margin + i * skinW;
+        ctx.fillStyle = st.color;
+        ctx.fillRect(sx, skinTop, skinW - 2, skinH);
+
+        ctx.fillStyle = '#ffffff';
+        ctx.font = '9px monospace';
+        ctx.textAlign = 'center';
+        ctx.fillText(st.label, sx + skinW / 2, skinTop + skinH - 6);
+      });
+
+      // Smooth Primary Saturation Gradients
+      const gradTop = skinTop + skinH + 12;
+      const gradTotalH = h - gradTop - margin;
+      const primaries = ['#ff0000', '#00ff00', '#0000ff', '#ffff00', '#ff00ff', '#00ffff'];
+      const rowH = Math.max(12, gradTotalH / primaries.length - 3);
+
+      primaries.forEach((hex, idx) => {
+        const gy = gradTop + idx * (rowH + 3);
+        const grad = ctx.createLinearGradient(margin, 0, margin + innerW, 0);
+        grad.addColorStop(0, '#000000');
+        grad.addColorStop(0.5, hex);
+        grad.addColorStop(1, '#ffffff');
+
+        ctx.fillStyle = grad;
+        ctx.fillRect(margin, gy, innerW, rowH);
+      });
+    }
+
+    function renderSharpnessPattern(w, h) {
+      // Neutral 50% gray background for testing edge ringing
+      ctx.fillStyle = '#808080';
+      ctx.fillRect(0, 0, w, h);
+
+      const margin = 16;
+      const innerW = w - margin * 2;
+      const innerH = h - margin * 2;
+
+      ctx.fillStyle = '#000000';
+      ctx.font = `bold ${Math.max(12, Math.floor(h * 0.022))}px ${getComputedStyle(document.body).getPropertyValue('--font-mono')}`;
+      ctx.textAlign = 'center';
+      ctx.fillText("SHARPNESS & HIGH-FREQUENCY DETAIL GRID", w / 2, margin + 20);
+
+      ctx.fillStyle = '#1f2937';
+      ctx.font = `${Math.max(9, Math.floor(h * 0.015))}px sans-serif`;
+      ctx.fillText("If you see glowing white lines or moiré ringing, TV Sharpness is TOO HIGH.", w / 2, margin + 36);
+
+      // Section 1: 1-Pixel Alternating Vertical and Horizontal Line Blocks
+      const blockTop = margin + 50;
+      const halfW = (innerW - 12) / 2;
+      const blockH = h * 0.38;
+
+      // Vertical 1px lines
+      ctx.fillStyle = '#000000';
+      ctx.fillRect(margin, blockTop, halfW, blockH);
+      ctx.fillStyle = '#ffffff';
+      for (let x = margin; x < margin + halfW; x += 2) {
+        ctx.fillRect(x, blockTop, 1, blockH);
+      }
+
+      // Horizontal 1px lines
+      ctx.fillStyle = '#000000';
+      ctx.fillRect(margin + halfW + 12, blockTop, halfW, blockH);
+      ctx.fillStyle = '#ffffff';
+      for (let y = blockTop; y < blockTop + blockH; y += 2) {
+        ctx.fillRect(margin + halfW + 12, y, halfW, 1);
+      }
+
+      // Labels for frequency blocks
+      ctx.fillStyle = '#111827';
+      ctx.font = '10px monospace';
+      ctx.fillText("1-Pixel Vertical Lines", margin + halfW / 2, blockTop + blockH + 14);
+      ctx.fillText("1-Pixel Horizontal Lines", margin + halfW + 12 + halfW / 2, blockTop + blockH + 14);
+
+      // Section 2: Concentric Circular & Diagonal Starburst Cross
+      const bottomY = blockTop + blockH + 24;
+      const bottomH = h - bottomY - margin;
+      const centerX = w / 2;
+      const centerY = bottomY + bottomH / 2;
+      const maxR = Math.min(halfW, bottomH) * 0.44;
+
+      if (maxR > 15) {
+        // High contrast rings
+        for (let r = 5; r <= maxR; r += 5) {
+          ctx.beginPath();
+          ctx.arc(centerX - halfW / 2, centerY, r, 0, Math.PI * 2);
+          ctx.strokeStyle = (r % 10 === 0) ? '#000000' : '#ffffff';
+          ctx.lineWidth = 1;
+          ctx.stroke();
+        }
+
+        // Checkerboard fine matrix
+        const checkOriginX = centerX + 10;
+        const checkSize = 3;
+        const checkCols = Math.floor((halfW - 20) / checkSize);
+        const checkRows = Math.floor(maxR * 1.8 / checkSize);
+        const checkStartY = centerY - (checkRows * checkSize) / 2;
+
+        for (let r = 0; r < checkRows; r++) {
+          for (let c = 0; c < checkCols; c++) {
+            ctx.fillStyle = ((r + c) % 2 === 0) ? '#000000' : '#ffffff';
+            ctx.fillRect(checkOriginX + c * checkSize, checkStartY + r * checkSize, checkSize, checkSize);
+          }
+        }
+      }
+    }
+
+    function renderBacklightPattern(w, h) {
+      // 20-Step Grayscale Uniformity Field
+      ctx.fillStyle = '#000000';
+      ctx.fillRect(0, 0, w, h);
+
+      const margin = 20;
+      const innerW = w - margin * 2;
+
+      ctx.fillStyle = '#ffffff';
+      ctx.font = `bold ${Math.max(12, Math.floor(h * 0.022))}px ${getComputedStyle(document.body).getPropertyValue('--font-mono')}`;
+      ctx.textAlign = 'center';
+      ctx.fillText("BACKLIGHT UNIFORMITY & GRAYSCALE LADDER", w / 2, margin + 20);
+
+      // 20 Grayscale Swatches (0% to 100%)
+      const steps = 20;
+      const swatchH = h * 0.28;
+      const swatchW = innerW / steps;
+      const startY = margin + 40;
+
+      for (let i = 0; i <= steps; i++) {
+        const val = Math.round((i / steps) * 255);
+        const x = margin + i * swatchW;
+        ctx.fillStyle = `rgb(${val}, ${val}, ${val})`;
+        ctx.fillRect(x, startY, swatchW + 0.5, swatchH);
+
+        // Label every 4th
+        if (i % 4 === 0) {
+          ctx.fillStyle = (val > 128) ? '#000000' : '#ffffff';
+          ctx.font = '9px monospace';
+          ctx.fillText(`${Math.round((i/steps)*100)}%`, x + swatchW / 2, startY + swatchH - 8);
+        }
+      }
+
+      // Smooth 0-255 Continuous Gradient
+      const gradY = startY + swatchH + 16;
+      const gradH = h * 0.12;
+      const linearGrad = ctx.createLinearGradient(margin, 0, margin + innerW, 0);
+      linearGrad.addColorStop(0, '#000000');
+      linearGrad.addColorStop(1, '#ffffff');
+
+      ctx.fillStyle = linearGrad;
+      ctx.fillRect(margin, gradY, innerW, gradH);
+      
+      ctx.strokeStyle = '#3f3f46';
+      ctx.lineWidth = 1;
+      ctx.strokeRect(margin, gradY, innerW, gradH);
+
+      // Uniform 50% Gray Field Box (Crucial for DSE: Dirty Screen Effect & Clouding)
+      const unifY = gradY + gradH + 16;
+      const unifH = h - unifY - margin;
+
+      if (unifH > 30) {
+        ctx.fillStyle = 'rgb(128,128,128)';
+        ctx.fillRect(margin, unifY, innerW, unifH);
+        
+        ctx.strokeStyle = '#71717a';
+        ctx.strokeRect(margin, unifY, innerW, unifH);
+
+        ctx.fillStyle = '#000000';
+        ctx.font = '10px monospace';
+        ctx.textAlign = 'center';
+        ctx.fillText("50% Gray Uniformity Field (Inspect for Dirty Screen Effect / Clouding)", w / 2, unifY + unifH / 2 + 3);
+      }
+    }
+
+    function renderMasterPattern(w, h) {
+      // 100% black field
+      ctx.fillStyle = '#000000';
+      ctx.fillRect(0, 0, w, h);
+
+      const margin = 12;
+      const innerW = w - margin * 2;
+      const innerH = h - margin * 2;
+
+      // Outer Reference Crop Guide Border
+      ctx.strokeStyle = '#3b82f6';
+      ctx.lineWidth = 2;
+      ctx.strokeRect(margin, margin, innerW, innerH);
+
+      // Compact Title
+      ctx.fillStyle = '#ffffff';
+      ctx.font = `bold ${Math.max(11, Math.floor(h * 0.02))}px monospace`;
+      ctx.textAlign = 'center';
+      ctx.fillText("ALL-IN-ONE MASTER CALIBRATION CARD (REC.709)", w / 2, margin + 18);
+
+      /* Sub-Section 1: SMPTE Color Bars (Top 22% height) */
+      const s1Y = margin + 26;
+      const s1H = h * 0.18;
+      const smpte = [
+        'rgb(191,191,191)', 'rgb(191,191,0)', 'rgb(0,191,191)',
+        'rgb(0,191,0)', 'rgb(191,0,191)', 'rgb(191,0,0)', 'rgb(0,0,191)'
+      ];
+      const s1BarW = innerW / smpte.length;
+      smpte.forEach((col, i) => {
+        ctx.fillStyle = col;
+        ctx.fillRect(margin + i * s1BarW, s1Y, s1BarW, s1H);
+      });
+
+      /* Sub-Section 2: Split Brightness & Contrast Dual Swatch (Mid 30% height) */
+      const s2Y = s1Y + s1H + 8;
+      const s2H = h * 0.26;
+      const halfBoxW = (innerW - 8) / 2;
+
+      // Left Box: Black PLUGE (Levels 0, 14, 16, 17, 18, 20, 24)
+      ctx.fillStyle = '#000000';
+      ctx.fillRect(margin, s2Y, halfBoxW, s2H);
+      ctx.strokeStyle = '#3f3f46';
+      ctx.lineWidth = 1;
+      ctx.strokeRect(margin, s2Y, halfBoxW, s2H);
+
+      const bSteps = [
+        { v: 0, l: "0" }, { v: 14, l: "14" }, { v: 16, l: "16*" },
+        { v: 17, l: "17" }, { v: 18, l: "18" }, { v: 22, l: "22" }, { v: 28, l: "28" }
+      ];
+      const bStepW = (halfBoxW - 12) / bSteps.length;
+      bSteps.forEach((b, i) => {
+        const bx = margin + 6 + i * bStepW;
+        ctx.fillStyle = `rgb(${b.v}, ${b.v}, ${b.v})`;
+        ctx.fillRect(bx, s2Y + 22, bStepW - 2, s2H - 32);
+
+        if (b.v === 16) {
+          ctx.strokeStyle = '#ef4444';
+          ctx.strokeRect(bx, s2Y + 22, bStepW - 2, s2H - 32);
+        }
+
+        ctx.fillStyle = (b.v <= 16) ? '#6b7280' : '#d1d5db';
+        ctx.font = '8px monospace';
+        ctx.textAlign = 'center';
+        ctx.fillText(b.l, bx + bStepW / 2, s2Y + s2H - 3);
+      });
+
+      ctx.fillStyle = '#ef4444';
+      ctx.font = '9px monospace';
+      ctx.textAlign = 'left';
+      ctx.fillText("BRIGHTNESS: 16 must clip, 17 visible", margin + 6, s2Y + 14);
+
+      // Right Box: White Clipping (Levels 225, 230, 235, 240, 245, 250, 255)
+      const cBoxX = margin + halfBoxW + 8;
+      ctx.fillStyle = '#3a3a3a';
+      ctx.fillRect(cBoxX, s2Y, halfBoxW, s2H);
+      ctx.strokeStyle = '#3f3f46';
+      ctx.lineWidth = 1;
+      ctx.strokeRect(cBoxX, s2Y, halfBoxW, s2H);
+
+      const wSteps = [
+        { v: 225, l: "225" }, { v: 230, l: "230" }, { v: 235, l: "235*" },
+        { v: 240, l: "240" }, { v: 245, l: "245" }, { v: 250, l: "250" }, { v: 255, l: "255" }
+      ];
+      const wStepW = (halfBoxW - 12) / wSteps.length;
+      wSteps.forEach((wst, i) => {
+        const wx = cBoxX + 6 + i * wStepW;
+        ctx.fillStyle = `rgb(${wst.v}, ${wst.v}, ${wst.v})`;
+        ctx.fillRect(wx, s2Y + 22, wStepW - 2, s2H - 32);
+
+        if (wst.v === 235) {
+          ctx.strokeStyle = '#3b82f6';
+          ctx.strokeRect(wx, s2Y + 22, wStepW - 2, s2H - 32);
+        }
+
+        ctx.fillStyle = (wst.v >= 235) ? '#18181b' : '#e5e7eb';
+        ctx.font = '8px monospace';
+        ctx.textAlign = 'center';
+        ctx.fillText(wst.l, wx + wStepW / 2, s2Y + s2H - 3);
+      });
+
+      ctx.fillStyle = '#60a5fa';
+      ctx.font = '9px monospace';
+      ctx.textAlign = 'left';
+      ctx.fillText("CONTRAST: 235 clear, 230-234 distinct", cBoxX + 6, s2Y + 14);
+
+      /* Sub-Section 3: Sharpness Fine Pixels & Diagonal Star (Mid 22% height) */
+      const s3Y = s2Y + s2H + 8;
+      const s3H = h * 0.22;
+      ctx.fillStyle = '#808080';
+      ctx.fillRect(margin, s3Y, innerW, s3H);
+
+      // Fine line alternating patch inside
+      const s3ThirdW = (innerW - 16) / 3;
+
+      // 1px Vertical lines
+      for (let x = margin + 8; x < margin + 8 + s3ThirdW; x += 2) {
+        ctx.fillStyle = '#000000';
+        ctx.fillRect(x, s3Y + 6, 1, s3H - 12);
+        ctx.fillStyle = '#ffffff';
+        ctx.fillRect(x + 1, s3Y + 6, 1, s3H - 12);
+      }
+
+      // 1px Horizontal lines
+      const midBlockX = margin + 8 + s3ThirdW + 8;
+      for (let y = s3Y + 6; y < s3Y + s3H - 6; y += 2) {
+        ctx.fillStyle = '#000000';
+        ctx.fillRect(midBlockX, y, s3ThirdW, 1);
+        ctx.fillStyle = '#ffffff';
+        ctx.fillRect(midBlockX, y + 1, s3ThirdW, 1);
+      }
+
+      // Fine Starburst cross
+      const starCenterX = midBlockX + s3ThirdW + 8 + s3ThirdW / 2;
+      const starCenterY = s3Y + s3H / 2;
+      const sRadius = (s3H - 16) / 2;
+      for (let angle = 0; angle < Math.PI * 2; angle += Math.PI / 12) {
+        ctx.beginPath();
+        ctx.moveTo(starCenterX, starCenterY);
+        ctx.lineTo(starCenterX + Math.cos(angle) * sRadius, starCenterY + Math.sin(angle) * sRadius);
+        ctx.strokeStyle = '#ffffff';
+        ctx.lineWidth = 1;
+        ctx.stroke();
+      }
+
+      /* Sub-Section 4: Continuous Full Grayscale Ramp (Remaining Bottom) */
+      const s4Y = s3Y + s3H + 8;
+      const s4H = h - s4Y - margin - 2;
+
+      if (s4H > 15) {
+        const fullGrad = ctx.createLinearGradient(margin, 0, margin + innerW, 0);
+        fullGrad.addColorStop(0, '#000000');
+        fullGrad.addColorStop(1, '#ffffff');
+        ctx.fillStyle = fullGrad;
+        ctx.fillRect(margin, s4Y, innerW, s4H);
+
+        ctx.strokeStyle = '#27272a';
+        ctx.strokeRect(margin, s4Y, innerW, s4H);
+      }
+    }
+
+    function drawCurrentPattern() {
+      const w = canvas.width;
+      const h = canvas.height;
+      if (!w || !h) return;
+
+      switch (state.currentPattern) {
+        case 'brightness':
+          renderBrightnessPattern(w, h);
+          break;
+        case 'contrast':
+          renderContrastPattern(w, h);
+          break;
+        case 'color':
+          renderColorPattern(w, h);
+          break;
+        case 'sharpness':
+          renderSharpnessPattern(w, h);
+          break;
+        case 'backlight':
+          renderBacklightPattern(w, h);
+          break;
+        case 'master':
+        default:
+          renderMasterPattern(w, h);
+          break;
+      }
+    }
+
+    // Animation frame for subtle blinking patterns
+    function animate() {
+      state.blinkPhase += 0.035;
+      if (state.currentPattern === 'brightness') {
+        drawCurrentPattern();
+      }
+      state.animId = requestAnimationFrame(animate);
+    }
+
+    // Tab switching
+    function selectTab(patternKey) {
+      if (!PATTERN_INFO[patternKey]) return;
+      state.currentPattern = patternKey;
+      tabButtons.forEach(btn => {
+        if (btn.getAttribute('data-pattern') === patternKey) {
+          btn.classList.add('active-tab');
+        } else {
+          btn.classList.remove('active-tab');
+        }
+      });
+      updateCaption();
+      drawCurrentPattern();
+    }
+
+    tabButtons.forEach(btn => {
+      btn.addEventListener('click', () => {
+        selectTab(btn.getAttribute('data-pattern'));
+      });
+    });
+
+    // Flip Left/Right sides (in case of TV menu on right)
+    function toggleFlip() {
+      state.isFlipped = !state.isFlipped;
+      if (state.isFlipped) {
+        mainContainer.classList.add('flex-row-reverse');
+        leftPane.classList.remove('border-r');
+        leftPane.classList.add('border-l');
+      } else {
+        mainContainer.classList.remove('flex-row-reverse');
+        leftPane.classList.remove('border-l');
+        leftPane.classList.add('border-r');
+      }
+      resizeCanvas();
+    }
+
+    flipLayoutBtn.addEventListener('click', toggleFlip);
+
+    // Guide panel display controls (Visible -> Dimmed -> Blackout)
+    function setGuideState(mode) {
+      state.guideVisibility = mode;
+      if (mode === 'blackout') {
+        blackoutNotice.classList.remove('hidden');
+        guideContent.classList.add('opacity-0');
+        menuAreaBtnText.textContent = "Guide: Blackout";
+      } else if (mode === 'dimmed') {
+        blackoutNotice.classList.add('hidden');
+        guideContent.classList.remove('opacity-0');
+        leftPane.classList.remove('bg-zinc-950/95');
+        leftPane.classList.add('bg-black', 'opacity-30');
+        menuAreaBtnText.textContent = "Guide: Dimmed";
+      } else {
+        blackoutNotice.classList.add('hidden');
+        guideContent.classList.remove('opacity-0');
+        leftPane.classList.remove('opacity-30', 'bg-black');
+        leftPane.classList.add('bg-zinc-950/95');
+        menuAreaBtnText.textContent = "Guide: Visible";
+      }
+    }
+
+    osdDimBtn.addEventListener('click', () => setGuideState('dimmed'));
+    osdBlackBtn.addEventListener('click', () => setGuideState('blackout'));
+    osdNormalBtn.addEventListener('click', () => setGuideState('visible'));
+    restoreGuideBtn.addEventListener('click', () => setGuideState('visible'));
+
+    toggleMenuAreaBtn.addEventListener('click', () => {
+      if (state.guideVisibility === 'visible') setGuideState('dimmed');
+      else if (state.guideVisibility === 'dimmed') setGuideState('blackout');
+      else setGuideState('visible');
+    });
+
+    // Fullscreen Toggle
+    function toggleFullscreen() {
+      if (!document.fullscreenElement) {
+        document.documentElement.requestFullscreen().catch(() => {});
+      } else {
+        if (document.exitFullscreen) {
+          document.exitFullscreen().catch(() => {});
+        }
+      }
+    }
+
+    fullscreenBtn.addEventListener('click', toggleFullscreen);
+
+    window.addEventListener('keydown', (e) => {
+      switch (e.key) {
+        case '1':
+          selectTab('brightness');
+          break;
+        case '2':
+          selectTab('contrast');
+          break;
+        case '3':
+          selectTab('color');
+          break;
+        case '4':
+          selectTab('sharpness');
+          break;
+        case '5':
+          selectTab('backlight');
+          break;
+        case '6':
+          selectTab('master');
+          break;
+        case 'f':
+        case 'F':
+          toggleFullscreen();
+          break;
+        case 's':
+        case 'S':
+          toggleFlip();
+          break;
+        case 'b':
+        case 'B':
+          setGuideState(state.guideVisibility === 'blackout' ? 'visible' : 'blackout');
+          break;
+        case 'ArrowRight':
+        case 'ArrowDown': {
+          const keys = Object.keys(PATTERN_INFO);
+          const currIdx = keys.indexOf(state.currentPattern);
+          const nextIdx = (currIdx + 1) % keys.length;
+          selectTab(keys[nextIdx]);
+          break;
+        }
+        case 'ArrowLeft':
+        case 'ArrowUp': {
+          const keys = Object.keys(PATTERN_INFO);
+          const currIdx = keys.indexOf(state.currentPattern);
+          const prevIdx = (currIdx - 1 + keys.length) % keys.length;
+          selectTab(keys[prevIdx]);
+          break;
+        }
+      }
+    });
+
+    window.addEventListener('load', () => {
+      resizeCanvas();
+      updateCaption();
+      animate();
+    });
+  </script>
+</body>
+</html>
